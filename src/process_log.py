@@ -7,7 +7,7 @@ input_file = "../log_input/log.txt"
 # median_output = sys.argv[3]
 
 hostnames = {}
-
+resources = {}
 
 
 def log_parse(line):
@@ -33,9 +33,11 @@ with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 
 		# Add count to hostnames
 		hostnames[ip_string] = hostnames.get(ip_string, 0) + 1 # look up the ip key, and initialize to 0 if it does not exist
-		# print line,
 
-# print hostnames
+		# Tally bandwidth for the resource
+		resources[ip_string] = hostnames.get(ip_string, 0) + 1 # look up the ip key, and initialize to 0 if it does not exist
+
+
 
 
 # F1 output: 10 most common hosts
