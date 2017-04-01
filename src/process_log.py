@@ -1,5 +1,4 @@
 # from collections import Counter
-# import bisect
 # import sys
 
 input_file = "../log_input/small.txt"
@@ -9,6 +8,9 @@ input_file = "../log_input/small.txt"
 # Initialize data structures
 hostnames = {}
 resources = {}
+warning = {}
+blocked = {}
+current_tick = "" # timestamp of previous log line 
 
 # Define functions
 def log_parse(line):
@@ -19,18 +21,19 @@ def log_parse(line):
 	ip_string = line.split(" -")[0]
 	time_string = line.split("[")[1][:26] # assume timestamp is always 26 chars long
 	request = line.split("\"")[1] # returns full request, including HTTP verb
-	code = line.split()[-2]
+	status = int(line.split()[-2])
 	bytes_sent = int(line.split()[-1])
 
-	# print code, bytes_sent 
-	return ip_string, time_string, request, code, bytes_sent
+	# print status, bytes_sent 
+	return ip_string, time_string, request, status, bytes_sent
 
 # Process file
+# todo: check that logs are sorted by time!
 with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 	for line in f0:
 
 		# Parse input log line
-		ip_string, time_string, request, code, bytes_sent = log_parse(line)
+		ip_string, time_string, request, status, bytes_sent = log_parse(line)
 
 		# Add count to hostnames
 		hostnames[ip_string] = hostnames.get(ip_string, 0) + 1 # look up the ip key, and initialize to 0 if it does not exist
@@ -39,27 +42,45 @@ with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 		resource = request.split()[1]
 		resources[resource] = resources.get(resource, 0) + bytes_sent # Add bytes to the tally for that resource
 
+		# check blocked and warning lists
+		if ip_string in blocked:
+			print "BLOCKED", line
+		elif status == 304:
+			warn_count = warning.get(ip_string, 0) + 1 # increment warning count
+			if warn_count >= 3:
+				print "three strikes!"
+				blocked[ip_string] = time_string # this timestamp indicates start of blocking period
+
+			else: 
+				warning[ip_string] = warn_count
+
+		# update blocked and warning lists unless we are still on the same second
+		# if time_string != current_tick:
+			# todo: add time stamp as a tuple in warning list
+			# todo: update lists
 
 
-##############
-# F1 output: 10 most common hosts
+		current_tick = time_string
 
-# option 1 (11.6s)
-import heapq
-print "sorting by heap"
-for host in heapq.nlargest(10, hostnames, key=hostnames.get):
-	print host, hostnames.get(host)
+# ##############
+# # F1 output: 10 most common hosts
 
-# option 2 (11.8s)
-print "\nsorting by sorted()"
-from operator import itemgetter
-for host in sorted(hostnames, key=hostnames.get, reverse=True)[:10]:
-	print host, hostnames.get(host)
+# # option 1 (11.6s)
+# import heapq
+# print "sorting by heap"
+# for host in heapq.nlargest(10, hostnames, key=hostnames.get):
+# 	print host, hostnames.get(host)
 
-##############
-# F2 output: 10 highest-bandwidth resources
+# # option 2 (11.8s)
+# print "\nsorting by sorted()"
+# from operator import itemgetter
+# for host in sorted(hostnames, key=hostnames.get, reverse=True)[:10]:
+# 	print host, hostnames.get(host)
 
-print "\nTop 10 Resources:"
-for top_resource in heapq.nlargest(10, resources, key=resources.get):
-	print top_resource, resources.get(top_resource)
+# ##############
+# # F2 output: 10 highest-bandwidth resources
+
+# print "\nTop 10 Resources:"
+# for top_resource in heapq.nlargest(10, resources, key=resources.get):
+# 	print top_resource, resources.get(top_resource)
 
