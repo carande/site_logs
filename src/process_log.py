@@ -2,14 +2,15 @@
 # import bisect
 # import sys
 
-input_file = "../log_input/log.txt"
+input_file = "../log_input/small.txt"
 # wc_output = sys.argv[2]
 # median_output = sys.argv[3]
 
+# Initialize data structures
 hostnames = {}
 resources = {}
 
-
+# Define functions
 def log_parse(line):
 
 	# todo: handle bad lines
@@ -19,12 +20,12 @@ def log_parse(line):
 	time_string = line.split("[")[1][:26] # assume timestamp is always 26 chars long
 	request = line.split("\"")[1] # returns full request, including HTTP verb
 	code = line.split()[-2]
-	bytes_sent = line.split()[-1]
+	bytes_sent = int(line.split()[-1])
 
 	# print code, bytes_sent 
 	return ip_string, time_string, request, code, bytes_sent
 
-
+# Process file
 with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 	for line in f0:
 
@@ -35,11 +36,12 @@ with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 		hostnames[ip_string] = hostnames.get(ip_string, 0) + 1 # look up the ip key, and initialize to 0 if it does not exist
 
 		# Tally bandwidth for the resource
-		resources[ip_string] = hostnames.get(ip_string, 0) + 1 # look up the ip key, and initialize to 0 if it does not exist
+		resource = request.split()[1]
+		resources[resource] = resources.get(resource, 0) + bytes_sent # Add bytes to the tally for that resource
 
 
 
-
+##############
 # F1 output: 10 most common hosts
 
 # option 1 (11.6s)
@@ -53,4 +55,11 @@ print "\nsorting by sorted()"
 from operator import itemgetter
 for host in sorted(hostnames, key=hostnames.get, reverse=True)[:10]:
 	print host, hostnames.get(host)
+
+##############
+# F2 output: 10 highest-bandwidth resources
+
+print "\nTop 10 Resources:"
+for top_resource in heapq.nlargest(10, resources, key=resources.get):
+	print top_resource, resources.get(top_resource)
 
