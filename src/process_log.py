@@ -46,17 +46,23 @@ with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 		if ip_string in blocked:
 			print "BLOCKED", line
 		elif status == 304:
-			warn_count = warning.get(ip_string, 0) + 1 # increment warning count
-			if warn_count >= 3:
-				print "three strikes!"
-				blocked[ip_string] = time_string # this timestamp indicates start of blocking period
+			if ip_string in warning:
+				warning[ip_string][0] += 1 # increment
+				# print warning
+				# check if we should be blocked
+				if warning[ip_string][0] >= 3:
+					print "three strikes! Got Blocked "+line
+					blocked[ip_string] = time_string # this timestamp indicates start of blocking period
 
 			else: 
-				warning[ip_string] = warn_count
+				warning[ip_string] = [1, time_string] # initialize
+			
+
+
 
 		# update blocked and warning lists unless we are still on the same second
-		# if time_string != current_tick:
-			# todo: add time stamp as a tuple in warning list
+		if time_string != current_tick:
+			pass
 			# todo: update lists
 
 
