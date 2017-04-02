@@ -1,9 +1,15 @@
-# from collections import Counter
 # import sys
+import datetime
+import time
 
 input_file = "../log_input/small.txt"
 # wc_output = sys.argv[2]
 # median_output = sys.argv[3]
+
+
+# Format Parameters
+TIME_FORMAT = "%d/%b/%Y:%H:%M:%S -0400" # '01/Jul/1995:00:00:01 -0400'
+
 
 # Initialize data structures
 hostnames = {}
@@ -14,21 +20,27 @@ current_tick = "" # timestamp of previous log line
 
 # Define functions
 def log_parse(line):
-
-	# todo: handle bad lines
 	# todo: is it better to split the whole line each time and extract data (like this), or save the array and split strings from that? (time each method)
 
-	ip_string = line.split(" -")[0]
-	time_string = line.split("[")[1][:26] # assume timestamp is always 26 chars long
-	request = line.split("\"")[1] # returns full request, including HTTP verb
-	status = int(line.split()[-2])
-	bytes_sent = int(line.split()[-1])
+	try:
+		ip_string = line.split(" -")[0]
+		time_string = line.split("[")[1][:26] # assume timestamp is always 26 chars long
+		request = line.split("\"")[1] # returns full request, including HTTP verb
+		status = int(line.split()[-2])
+		try:
+			bytes_sent = int(line.split()[-1])
+		except ValueError as v: # catch the case where bytes are given as "-"
+			bytes_sent = 0
+	except Exception as e:
+		print "cannot process line: "+line
+		raise e
+
 
 	# print status, bytes_sent 
 	return ip_string, time_string, request, status, bytes_sent
 
 # Process file
-# todo: check that logs are sorted by time!
+# todo: Preprocess script.  check that logs are sorted by time!
 with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 	for line in f0:
 
@@ -44,11 +56,11 @@ with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 
 		# check blocked and warning lists
 		if ip_string in blocked:
-			print "BLOCKED", line
+			print "BLOCKED", line,
 		elif status == 304:
+			# record or initialize warning
 			if ip_string in warning:
 				warning[ip_string][0] += 1 # increment
-				# print warning
 				# check if we should be blocked
 				if warning[ip_string][0] >= 3:
 					print "three strikes! Got Blocked "+line
@@ -62,7 +74,9 @@ with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 
 		# update blocked and warning lists unless we are still on the same second
 		if time_string != current_tick:
-			pass
+			# current_datetime = datetime.datetime.strptime(time_string)
+			# todo: any advantage to using datetime over time?
+			current_time = time.strptime(time_string, TIME_FORMAT)
 			# todo: update lists
 
 
@@ -80,6 +94,7 @@ with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 # # option 2 (11.8s)
 # print "\nsorting by sorted()"
 # from operator import itemgetter
+		# Tally bandwidth for the resource
 # for host in sorted(hostnames, key=hostnames.get, reverse=True)[:10]:
 # 	print host, hostnames.get(host)
 
@@ -89,4 +104,10 @@ with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 # print "\nTop 10 Resources:"
 # for top_resource in heapq.nlargest(10, resources, key=resources.get):
 # 	print top_resource, resources.get(top_resource)
+
+# F3 output: Busiest 60-min periods
+
+# F4 output: Blocked access attempts
+for host in sorted(warning, key=warning.get, reverse=True):
+	print host, warning.get(host)
 
