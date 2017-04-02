@@ -1,5 +1,6 @@
 # import sys
-import datetime
+from collections import Counter
+# import datetime
 import time
 
 input_file = "../log_input/log.txt"
@@ -20,6 +21,7 @@ warning = {}
 blocked = {}
 previous_time = "" # timestamp of previous log line (string)
 current_time = None # time in seconds since epoch (time object)
+activity = Counter()
 
 # Define functions
 def logParse(line):
@@ -76,6 +78,7 @@ with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 
 		# Add count to hostnames
 		hostnames[ip_string] = hostnames.get(ip_string, 0) + 1 # look up the ip key, and initialize to 0 if it does not exist
+		#todo: faster to use counters?  timeit
 
 		# Tally bandwidth for the resource
 		resources[resource] = resources.get(resource, 0) + bytes_sent # Add bytes to the tally for that resource
@@ -91,11 +94,13 @@ with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 			warningUpdate(current_time)
 			blockedUpdate(current_time)
 
+		activity[current_time] += 1
+
 		# check blocked and warning lists
 		if ip_string in blocked:
-			print "BLOCKED", line,
-
-		if ip_string in warning:
+			# print "BLOCKED", line,
+			pass
+		elif ip_string in warning:
 			if status < 300: # "good" request resets the warning timer
 				del warning[ip_string]
 
@@ -103,7 +108,7 @@ with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 				warning[ip_string][0] += 1
 				# check if we should be blocked
 				if warning[ip_string][0] >= 3:
-					print "three strikes! Got Blocked "+line
+					# print "three strikes! Got Blocked "+line
 					blocked[ip_string] = current_time # this timestamp indicates start of blocking period
 					del warning[ip_string] # remove from warning because we know they are blocked
 
@@ -114,32 +119,32 @@ with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 		# update time string
 		previous_time = time_string
 
-# ##############
-# # F1 output: 10 most common hosts
+##############
+# F1 output: 10 most common hosts
 
-# # option 1 (11.6s)
-# import heapq
-# print "sorting by heap"
-# for host in heapq.nlargest(10, hostnames, key=hostnames.get):
-# 	print host, hostnames.get(host)
+# option 1 (11.6s)
+import heapq
+print "\nsorting by heap"
+for host in heapq.nlargest(10, hostnames, key=hostnames.get):
+	print host, hostnames.get(host)
 
 # # option 2 (11.8s)
 # print "\nsorting by sorted()"
-# from operator import itemgetter
-		# Tally bandwidth for the resource
 # for host in sorted(hostnames, key=hostnames.get, reverse=True)[:10]:
 # 	print host, hostnames.get(host)
 
-# ##############
-# # F2 output: 10 highest-bandwidth resources
+##############
+# F2 output: 10 highest-bandwidth resources
 
-# print "\nTop 10 Resources:"
-# for top_resource in heapq.nlargest(10, resources, key=resources.get):
-# 	print top_resource, resources.get(top_resource)
+print "\nTop 10 Resources:"
+for top_resource in heapq.nlargest(10, resources, key=resources.get):
+	print top_resource, resources.get(top_resource)
 
+##############
 # F3 output: Busiest 60-min periods
+print "\nunique time entries", len(activity)
 
+##############
 # F4 output: Blocked access attempts
-# for host in sorted(warning, key=warning.get, reverse=True):
-# 	print host, warning.get(host)
+
 
