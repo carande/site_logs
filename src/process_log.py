@@ -2,12 +2,14 @@
 import datetime
 import time
 
-input_file = "../log_input/small.txt"
+input_file = "../log_input/med.txt"
 # wc_output = sys.argv[2]
 # median_output = sys.argv[3]
 
 
 # Format Parameters
+
+# Assuming time zone is always -0400
 TIME_FORMAT = "%d/%b/%Y:%H:%M:%S -0400" # '01/Jul/1995:00:00:01 -0400'
 
 
@@ -16,10 +18,11 @@ hostnames = {}
 resources = {}
 warning = {}
 blocked = {}
-current_tick = "" # timestamp of previous log line 
+previous_time = "" # timestamp of previous log line (string)
+current_time = None # time in seconds since epoch (time object)
 
 # Define functions
-def log_parse(line):
+def logParse(line):
 	# todo: is it better to split the whole line each time and extract data (like this), or save the array and split strings from that? (time each method)
 
 	try:
@@ -39,13 +42,33 @@ def log_parse(line):
 	# print status, bytes_sent 
 	return ip_string, time_string, request, status, bytes_sent
 
+# todo: is it better to make these as objects, and have member methods to update?
+# todo: extend a parent method?
+def warningUpdate(current_time):
+	for ip, warn_tally in warning.items():
+		elapsed = current_time - warn_tally[1]
+		if elapsed > 20.0:
+			print "deleting from warning", ip, elapsed 
+			del warning[ip]
+
+def blockedUpdate(current_time):
+	# print "updating blocked list at "+str(current_time)
+	for ip, block_time in blocked.items():
+		elapsed = current_time - block_time
+		if elapsed > 5*60.0: # 5-min block period
+			print "deleting from blocked", ip, elapsed 
+			del blocked[ip]
+
+def getTime(time_string):
+	return time.mktime(time.strptime(time_string, TIME_FORMAT))
+
 # Process file
 # todo: Preprocess script.  check that logs are sorted by time!
 with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 	for line in f0:
 
 		# Parse input log line
-		ip_string, time_string, request, status, bytes_sent = log_parse(line)
+		ip_string, time_string, request, status, bytes_sent = logParse(line)
 
 		# Add count to hostnames
 		hostnames[ip_string] = hostnames.get(ip_string, 0) + 1 # look up the ip key, and initialize to 0 if it does not exist
@@ -54,33 +77,39 @@ with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 		resource = request.split()[1]
 		resources[resource] = resources.get(resource, 0) + bytes_sent # Add bytes to the tally for that resource
 
+
+		# time-dependent functions
+
+		if time_string != previous_time: # only update if we are on a new second
+			# print "\t\t\tthe time is "+time_string
+			current_time = getTime(time_string)
+
+			# update lists to see if we have waited long enough
+			warningUpdate(current_time)
+			blockedUpdate(current_time)
+
 		# check blocked and warning lists
 		if ip_string in blocked:
 			print "BLOCKED", line,
-		elif status == 304:
-			# record or initialize warning
-			if ip_string in warning:
-				warning[ip_string][0] += 1 # increment
+
+		if ip_string in warning:
+			if status < 300: # "good" request resets the warning timer
+				del warning[ip_string]
+
+			elif status == 304: # unauthorized request increments warning
+				warning[ip_string][0] += 1
 				# check if we should be blocked
 				if warning[ip_string][0] >= 3:
 					print "three strikes! Got Blocked "+line
-					blocked[ip_string] = time_string # this timestamp indicates start of blocking period
+					blocked[ip_string] = current_time # this timestamp indicates start of blocking period
+					del warning[ip_string] # remove from warning because we know they are blocked
 
-			else: 
-				warning[ip_string] = [1, time_string] # initialize
-			
-
-
-
-		# update blocked and warning lists unless we are still on the same second
-		if time_string != current_tick:
-			# current_datetime = datetime.datetime.strptime(time_string)
-			# todo: any advantage to using datetime over time?
-			current_time = time.strptime(time_string, TIME_FORMAT)
-			# todo: update lists
+		elif status == 304: # first warning
+			warning[ip_string] = [1, current_time] # initialize
 
 
-		current_tick = time_string
+		# update time string
+		previous_time = time_string
 
 # ##############
 # # F1 output: 10 most common hosts
@@ -108,6 +137,6 @@ with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 # F3 output: Busiest 60-min periods
 
 # F4 output: Blocked access attempts
-for host in sorted(warning, key=warning.get, reverse=True):
-	print host, warning.get(host)
+# for host in sorted(warning, key=warning.get, reverse=True):
+# 	print host, warning.get(host)
 
