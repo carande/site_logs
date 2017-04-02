@@ -2,7 +2,7 @@
 import datetime
 import time
 
-input_file = "../log_input/med.txt"
+input_file = "../log_input/log.txt"
 # wc_output = sys.argv[2]
 # median_output = sys.argv[3]
 
@@ -28,7 +28,8 @@ def logParse(line):
 	try:
 		ip_string = line.split(" -")[0]
 		time_string = line.split("[")[1][:26] # assume timestamp is always 26 chars long
-		request = line.split("\"")[1] # returns full request, including HTTP verb
+		# request = line.split("\"")[1] # returns full request, including HTTP verb
+		request = line.split("\"")[1].split()[1] # returns only resource
 		status = int(line.split()[-2])
 		try:
 			bytes_sent = int(line.split()[-1])
@@ -48,7 +49,7 @@ def warningUpdate(current_time):
 	for ip, warn_tally in warning.items():
 		elapsed = current_time - warn_tally[1]
 		if elapsed > 20.0:
-			print "deleting from warning", ip, elapsed 
+			# print "deleting from warning", ip, elapsed 
 			del warning[ip]
 
 def blockedUpdate(current_time):
@@ -56,7 +57,7 @@ def blockedUpdate(current_time):
 	for ip, block_time in blocked.items():
 		elapsed = current_time - block_time
 		if elapsed > 5*60.0: # 5-min block period
-			print "deleting from blocked", ip, elapsed 
+			# print "deleting from blocked", ip, elapsed 
 			del blocked[ip]
 
 def getTime(time_string):
@@ -68,13 +69,15 @@ with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 	for line in f0:
 
 		# Parse input log line
-		ip_string, time_string, request, status, bytes_sent = logParse(line)
+		try: 
+			ip_string, time_string, resource, status, bytes_sent = logParse(line)
+		except Exception as e:
+			continue # can't process this line, just go on to next one	
 
 		# Add count to hostnames
 		hostnames[ip_string] = hostnames.get(ip_string, 0) + 1 # look up the ip key, and initialize to 0 if it does not exist
 
 		# Tally bandwidth for the resource
-		resource = request.split()[1]
 		resources[resource] = resources.get(resource, 0) + bytes_sent # Add bytes to the tally for that resource
 
 
