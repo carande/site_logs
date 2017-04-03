@@ -3,9 +3,13 @@ from collections import Counter
 # import datetime
 import time
 
-input_file = "../log_input/log.txt"
-# wc_output = sys.argv[2]
-# median_output = sys.argv[3]
+input_file = 		"../log_input/med.txt"
+
+hosts_output = 		"../log_output/hosts.txt"
+hours_output = 		"../log_output/hours.txt"
+resources_output = 	"../log_output/resources.txt"
+blocked_output = 	"../log_output/blocked.txt"
+unreadable_output = "../log_output/unreadable.txt"
 
 
 # Format Parameters
@@ -68,56 +72,57 @@ def getTime(time_string):
 # Process file
 # todo: Preprocess script.  check that logs are sorted by time!
 with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
-	for line in f0:
+	with open(blocked_output, "w") as b0:
 
-		# Parse input log line
-		try: 
-			ip_string, time_string, resource, status, bytes_sent = logParse(line)
-		except Exception as e:
-			continue # can't process this line, just go on to next one	
+		for line in f0:
 
-		# Add count to hostnames
-		hostnames[ip_string] = hostnames.get(ip_string, 0) + 1 # look up the ip key, and initialize to 0 if it does not exist
-		#todo: faster to use counters?  timeit
+			# Parse input log line
+			try: 
+				ip_string, time_string, resource, status, bytes_sent = logParse(line)
+			except Exception as e:
+				continue # can't process this line, just go on to next one	
 
-		# Tally bandwidth for the resource
-		resources[resource] = resources.get(resource, 0) + bytes_sent # Add bytes to the tally for that resource
+			# Add count to hostnames
+			hostnames[ip_string] = hostnames.get(ip_string, 0) + 1 # look up the ip key, and initialize to 0 if it does not exist
+			#todo: faster to use counters?  timeit
 
-
-		# time-dependent functions
-
-		if time_string != previous_time: # only update if we are on a new second
-			# print "\t\t\tthe time is "+time_string
-			current_time = getTime(time_string)
-
-			# update lists to see if we have waited long enough
-			warningUpdate(current_time)
-			blockedUpdate(current_time)
-
-		activity[current_time] += 1
-
-		# check blocked and warning lists
-		if ip_string in blocked:
-			# print "BLOCKED", line,
-			pass
-		elif ip_string in warning:
-			if status < 300: # "good" request resets the warning timer
-				del warning[ip_string]
-
-			elif status == 304: # unauthorized request increments warning
-				warning[ip_string][0] += 1
-				# check if we should be blocked
-				if warning[ip_string][0] >= 3:
-					# print "three strikes! Got Blocked "+line
-					blocked[ip_string] = current_time # this timestamp indicates start of blocking period
-					del warning[ip_string] # remove from warning because we know they are blocked
-
-		elif status == 304: # first warning
-			warning[ip_string] = [1, current_time] # initialize
+			# Tally bandwidth for the resource
+			resources[resource] = resources.get(resource, 0) + bytes_sent # Add bytes to the tally for that resource
 
 
-		# update time string
-		previous_time = time_string
+			# time-dependent functions
+
+			if time_string != previous_time: # only update if we are on a new second
+				# print "\t\t\tthe time is "+time_string
+				current_time = getTime(time_string)
+
+				# update lists to see if we have waited long enough
+				warningUpdate(current_time)
+				blockedUpdate(current_time)
+
+			activity[current_time] += 1
+
+			# check blocked and warning lists
+			if ip_string in blocked:
+				b0.write(line)
+			elif ip_string in warning:
+				if status < 300: # "good" request resets the warning timer
+					del warning[ip_string]
+
+				elif status == 304: # unauthorized request increments warning
+					warning[ip_string][0] += 1
+					# check if we should be blocked
+					if warning[ip_string][0] >= 3:
+						# print "three strikes! Got Blocked "+line
+						blocked[ip_string] = current_time # this timestamp indicates start of blocking period
+						del warning[ip_string] # remove from warning because we know they are blocked
+
+			elif status == 304: # first warning
+				warning[ip_string] = [1, current_time] # initialize
+
+
+			# update time string
+			previous_time = time_string
 
 ##############
 # F1 output: 10 most common hosts
@@ -125,8 +130,9 @@ with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 # option 1 (11.6s)
 import heapq
 print "\nsorting by heap"
-for host in heapq.nlargest(10, hostnames, key=hostnames.get):
-	print host, hostnames.get(host)
+with open(hosts_output, "w") as file:
+	for host in heapq.nlargest(10, hostnames, key=hostnames.get):
+		file.write( host +","+ str(hostnames.get(host))+"\n" )
 
 # # option 2 (11.8s)
 # print "\nsorting by sorted()"
@@ -137,35 +143,37 @@ for host in heapq.nlargest(10, hostnames, key=hostnames.get):
 # F2 output: 10 highest-bandwidth resources
 
 print "\nTop 10 Resources:"
-for top_resource in heapq.nlargest(10, resources, key=resources.get):
-	print top_resource, resources.get(top_resource)
+with open(resources_output, "w") as file:
+	for top_resource in heapq.nlargest(10, resources, key=resources.get):
+		# file.write( top_resource +" "+ str(resources.get(top_resource))+"\n" )
+		file.write( top_resource+"\n")
+
+# ##############
+# # F3 output: Busiest 60-min periods
+# print "\nunique time entries", len(activity)
+
+# summed_activity = Counter() # integrating the next hour of activity, for each second
+# # this really sucks on performance
+# print "integrating activity"
+# for second in activity: 
+# 	running_sum = 0
+# 	for i in range(3600):
+# 		running_sum+=activity[second+i]
+# 	summed_activity[second]=running_sum
+
+# # find 10 highest counts not lying in an existing window
+# print "finding highest activity periods"
+# highest = []
+# for point in summed_activity.most_common():
+# 	if len(highest) < 10:
+# 		deltas = [point[0]-i[0] for i in highest]
+# 		if not any(d<3600 for d in deltas): # save highest points that don't overlap within an hour
+# 			highest.append(point)
+
+# for i in highest:
+# 	print time.strftime(TIME_FORMAT, time.localtime(i[0])), i[1]
 
 ##############
-# F3 output: Busiest 60-min periods
-print "\nunique time entries", len(activity)
-
-summed_activity = Counter() # integrating the next hour of activity, for each second
-# this really sucks on performance
-print "integrating activity"
-for second in activity: 
-	running_sum = 0
-	for i in range(3600):
-		running_sum+=activity[second+i]
-	summed_activity[second]=running_sum
-
-# find 10 highest counts not lying in an existing window
-print "finding highest activity periods"
-highest = []
-for point in summed_activity.most_common():
-	if len(highest) < 10:
-		deltas = [point[0]-i[0] for i in highest]
-		if not any(d<3600 for d in deltas): # save highest points that don't overlap within an hour
-			highest.append(point)
-
-for i in highest:
-	print time.strftime(TIME_FORMAT, time.localtime(i[0])), i[1]
-
-##############
-# F4 output: Blocked access attempts
+# F4 output: Blocked access attempts (already written to file)
 
 
