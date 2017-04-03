@@ -38,7 +38,7 @@ def logParse(line):
 		except ValueError as v: # catch the case where bytes are given as "-"
 			bytes_sent = 0
 	except Exception as e:
-		print "cannot process line: "+line
+		print "cannot process line: "+line, e
 		raise e
 
 
@@ -143,6 +143,27 @@ for top_resource in heapq.nlargest(10, resources, key=resources.get):
 ##############
 # F3 output: Busiest 60-min periods
 print "\nunique time entries", len(activity)
+
+summed_activity = Counter() # integrating the next hour of activity, for each second
+# this really sucks on performance
+print "integrating activity"
+for second in activity: 
+	running_sum = 0
+	for i in range(3600):
+		running_sum+=activity[second+i]
+	summed_activity[second]=running_sum
+
+# find 10 highest counts not lying in an existing window
+print "finding highest activity periods"
+highest = []
+for point in summed_activity.most_common():
+	if len(highest) < 10:
+		deltas = [point[0]-i[0] for i in highest]
+		if not any(d<3600 for d in deltas): # save highest points that don't overlap within an hour
+			highest.append(point)
+
+for i in highest:
+	print time.strftime(TIME_FORMAT, time.localtime(i[0])), i[1]
 
 ##############
 # F4 output: Blocked access attempts
