@@ -4,3 +4,5 @@ log_input/log.txt
 log_output/*
 
 insight_testsuite/temp/*
+
+insight_testsuite/results.txt
