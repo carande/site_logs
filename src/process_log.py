@@ -1,15 +1,15 @@
-# import sys
+import sys
 from collections import Counter
 # import datetime
 import time
 
-input_file = 		"../log_input/med.txt"
+input_file = 		sys.argv[1]
 
-hosts_output = 		"../log_output/hosts.txt"
-hours_output = 		"../log_output/hours.txt"
-resources_output = 	"../log_output/resources.txt"
-blocked_output = 	"../log_output/blocked.txt"
-unreadable_output = "../log_output/unreadable.txt"
+hosts_output = 		sys.argv[2]
+hours_output = 		sys.argv[3]
+resources_output = 	sys.argv[4]
+blocked_output = 	sys.argv[5]
+# unreadable_output = sys.argv[1]
 
 
 # Format Parameters
@@ -80,6 +80,7 @@ with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 			try: 
 				ip_string, time_string, resource, status, bytes_sent = logParse(line)
 			except Exception as e:
+				# write bad line to file
 				continue # can't process this line, just go on to next one	
 
 			# Add count to hostnames
