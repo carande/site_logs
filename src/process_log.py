@@ -1,15 +1,28 @@
 import sys
 from collections import Counter
-# import datetime
 import time
 
-input_file = 		sys.argv[1]
+# default file locations
+input_file = 		"../log_input/log.txt"
 
-hosts_output = 		sys.argv[2]
-hours_output = 		sys.argv[3]
-resources_output = 	sys.argv[4]
-blocked_output = 	sys.argv[5]
-# unreadable_output = sys.argv[1]
+hosts_output = 		"../log_output/hosts.txt"
+hours_output = 		"../log_output/hours.txt"
+resources_output = 	"../log_output/resources.txt"
+blocked_output = 	"../log_output/blocked.txt"
+# unreadable_output = sys.argv[6]
+
+
+# Overwrite if given command line parameters
+try:
+	input_file = 		sys.argv[1]
+	hosts_output = 		sys.argv[2]
+	hours_output = 		sys.argv[3]
+	resources_output = 	sys.argv[4]
+	blocked_output = 	sys.argv[5]
+except Exception as e:
+	print "some command line arguments missing, using defaults for some values:"
+	print input_file, hosts_output, hours_output, resources_output, blocked_output
+	pass
 
 
 # Format Parameters
@@ -110,7 +123,7 @@ with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 				if status < 300: # "good" request resets the warning timer
 					del warning[ip_string]
 
-				elif status == 304: # unauthorized request increments warning
+				elif status == 401: # unauthorized request increments warning
 					warning[ip_string][0] += 1
 					# check if we should be blocked
 					if warning[ip_string][0] >= 3:
@@ -118,7 +131,7 @@ with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 						blocked[ip_string] = current_time # this timestamp indicates start of blocking period
 						del warning[ip_string] # remove from warning because we know they are blocked
 
-			elif status == 304: # first warning
+			elif status == 401: # first warning
 				warning[ip_string] = [1, current_time] # initialize
 
 
@@ -150,29 +163,30 @@ with open(resources_output, "w") as file:
 		file.write( top_resource+"\n")
 
 # ##############
-# # F3 output: Busiest 60-min periods
-# print "\nunique time entries", len(activity)
+# F3 output: Busiest 60-min periods
+print "\nunique time entries", len(activity)
 
-# summed_activity = Counter() # integrating the next hour of activity, for each second
-# # this really sucks on performance
-# print "integrating activity"
-# for second in activity: 
-# 	running_sum = 0
-# 	for i in range(3600):
-# 		running_sum+=activity[second+i]
-# 	summed_activity[second]=running_sum
+summed_activity = Counter() # integrating the next hour of activity, for each second
+# this really sucks on performance
+print "integrating activity"
+for second in activity: 
+	running_sum = 0
+	for i in range(3600):
+		running_sum+=activity[second+i]
+	summed_activity[second]=running_sum
 
-# # find 10 highest counts not lying in an existing window
-# print "finding highest activity periods"
-# highest = []
-# for point in summed_activity.most_common():
-# 	if len(highest) < 10:
-# 		deltas = [point[0]-i[0] for i in highest]
-# 		if not any(d<3600 for d in deltas): # save highest points that don't overlap within an hour
-# 			highest.append(point)
+# find 10 highest counts not lying in an existing window
+print "finding highest activity periods"
+highest = []
+for point in summed_activity.most_common():
+	if len(highest) < 10:
+		# deltas = [point[0]-i[0] for i in highest]
+		# if not any(d<3600 for d in deltas): # save highest points that don't overlap within an hour
+			highest.append(point)
 
-# for i in highest:
-# 	print time.strftime(TIME_FORMAT, time.localtime(i[0])), i[1]
+with open(hours_output, "w") as file:
+	for i in highest:
+		file.write(time.strftime(TIME_FORMAT, time.localtime(i[0])) +","+ str(i[1]) +"\n")
 
 ##############
 # F4 output: Blocked access attempts (already written to file)
