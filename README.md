@@ -2,7 +2,8 @@
 I kept my code structure relatively simple, the directory structure is the same as the example repo and all of my processing logic is in the python script "process_log.py"
 
 To invoke:
-process_log.py {input_file} {hosts_output} {hours_output} {resources_output} {blocked_output} {overlap_window}
+
+`process_log.py {input_file} {hosts_output} {hours_output} {resources_output} {blocked_output} {overlap_window}`
 
 
 I found Feature 3 (Highest activity windows) to be a little vague: the hour-long windows can start at any time (according to the description), but no information is given on whether the hours can overlap.  Therefore, I added an extra input parameter that can be optionally passed into my script which determines the allowable overlap between windows (in seconds).
