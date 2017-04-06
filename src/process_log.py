@@ -8,7 +8,7 @@ import heapq
 # I/O Setup
 
 # default file locations
-input_file = 		"../log_input/med.txt"
+input_file = 		"../log_input/log.txt"
 
 hosts_output = 		"../log_output/hosts.txt"
 hours_output = 		"../log_output/hours.txt"
