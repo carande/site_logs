@@ -14,6 +14,7 @@ hosts_output = 		"../log_output/hosts.txt"
 hours_output = 		"../log_output/hours.txt"
 resources_output = 	"../log_output/resources.txt"
 blocked_output = 	"../log_output/blocked.txt"
+overlap = 3600
 
 # Overwrite if given command line parameters
 try:
@@ -22,9 +23,10 @@ try:
 	hours_output = 		sys.argv[3]
 	resources_output = 	sys.argv[4]
 	blocked_output = 	sys.argv[5]
+	overlap = 			sys.argv[6]
 except Exception as e:
 	print "some command line arguments missing, using defaults for some values:"
-	print input_file, hosts_output, hours_output, resources_output, blocked_output
+	print input_file, hosts_output, hours_output, resources_output, blocked_output, overlap
 	pass
 
 
@@ -186,7 +188,7 @@ highest = []
 for point in summed_activity.most_common():
 	if len(highest) < 10:
 		deltas = [abs(point[0]-i[0]) for i in highest]
-		if not any(d<3600 for d in deltas): # save highest points that don't overlap within an hour
+		if not any(d<overlap for d in deltas): # save highest points that don't overlap within an hour
 			highest.append(point)
 
 with open(hours_output, "w") as file:
