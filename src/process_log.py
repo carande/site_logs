@@ -1,9 +1,10 @@
 import sys
 from collections import Counter
 import time
+import numpy as np
 
 # default file locations
-input_file = 		"../log_input/log.txt"
+input_file = 		"../log_input/small.txt"
 
 hosts_output = 		"../log_output/hosts.txt"
 hours_output = 		"../log_output/hours.txt"
@@ -38,7 +39,7 @@ warning = {}
 blocked = {}
 previous_time = "" # timestamp of previous log line (string)
 current_time = None # time in seconds since epoch (time object)
-activity = Counter()
+activity = [0]
 
 # Define functions
 def logParse(line):
@@ -80,10 +81,19 @@ def blockedUpdate(current_time):
 			del blocked[ip]
 
 def getTime(time_string):
-	return time.mktime(time.strptime(time_string, TIME_FORMAT))
+	return int(time.mktime(time.strptime(time_string, TIME_FORMAT)))
+
+# todo: Preprocess script.  check that logs are sorted by time!
+
+# Get initial time from first line of file
+t0 = None 
+with open(input_file, 'r', -1) as f:
+	previous_time = logParse(f.readline())[1] # initial time, as string
+	t0 = getTime(previous_time) # initial time, in seconds
+	current_time = getTime(previous_time) # set this to t0 for first iteration
+print "first time is "+str(t0)
 
 # Process file
-# todo: Preprocess script.  check that logs are sorted by time!
 with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 	with open(blocked_output, "w") as b0:
 
@@ -108,13 +118,16 @@ with open(input_file, 'r', -1) as f0: # open in read mode with default buffer
 
 			if time_string != previous_time: # only update if we are on a new second
 				# print "\t\t\tthe time is "+time_string
-				current_time = getTime(time_string)
-
+				new_time = getTime(time_string)
+				delta = new_time - current_time
+				# add 0s to our activity list based on the number of skipped seconds
+				activity.extend([0 for i in range(delta)])
+				current_time = new_time
 				# update lists to see if we have waited long enough
 				warningUpdate(current_time)
 				blockedUpdate(current_time)
 
-			activity[current_time] += 1
+			activity[current_time-t0] += 1
 
 			# check blocked and warning lists
 			if ip_string in blocked:
@@ -163,30 +176,36 @@ with open(resources_output, "w") as file:
 		file.write( top_resource+"\n")
 
 # ##############
-# F3 output: Busiest 60-min periods
-print "\nunique time entries", len(activity)
+# # F3 output: Busiest 60-min periods
 
 summed_activity = Counter() # integrating the next hour of activity, for each second
-# this really sucks on performance
 print "integrating activity"
-for second in activity: 
-	running_sum = 0
-	for i in range(3600):
-		running_sum+=activity[second+i]
-	summed_activity[second]=running_sum
+
+# seed first point
+previous_point = sum(activity[:3600])
+
+summed_activity[0] = previous_point
+activity.extend(np.zeros(3600, dtype=int)) # pad end of list so we can integrate out to end
+
+for i in range(len(activity)-3600): # increment window by one space each time
+	previous_point = previous_point - activity[i] + activity[i+3600] # remove trailing point, and add one additional point
+	summed_activity[i+1] = previous_point
+
 
 # find 10 highest counts not lying in an existing window
 print "finding highest activity periods"
 highest = []
 for point in summed_activity.most_common():
 	if len(highest) < 10:
-		# deltas = [point[0]-i[0] for i in highest]
+		# deltas = [math.abs(point[0]-i[0]) for i in highest]
 		# if not any(d<3600 for d in deltas): # save highest points that don't overlap within an hour
 			highest.append(point)
 
+print highest
+
 with open(hours_output, "w") as file:
 	for i in highest:
-		file.write(time.strftime(TIME_FORMAT, time.localtime(i[0])) +","+ str(i[1]) +"\n")
+		file.write(time.strftime(TIME_FORMAT, time.localtime(i[0]+t0)) +","+ str(i[1]) +"\n")
 
 ##############
 # F4 output: Blocked access attempts (already written to file)
